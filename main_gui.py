@@ -31,12 +31,16 @@ def open_main_py():
 def open_add_student_form():
     def submit_form():
         name = name_entry.get()
-        branch = branch_entry.get()
+        branch = branch_entry.get()  # Get the branch from input
         roll_no = roll_no_entry.get()
         photo_path = photo_label.cget("text")
         
         if photo_path == "No file selected":
             messagebox.showwarning("Warning", "Please upload a photo.")
+            return
+        
+        if not branch or not roll_no or not name:
+            messagebox.showwarning("Warning", "Please fill all the fields")
             return
         
         # Save student data to Firebase
@@ -51,7 +55,7 @@ def open_add_student_form():
         }
         ref.child(roll_no).set(student_data)
 
-        # Save photo in ./images folder
+        # Save photo in ./Images folder
         if not os.path.exists('./Images'):
             os.makedirs('./Images')
         img = cv2.imread(photo_path)
@@ -61,16 +65,24 @@ def open_add_student_form():
         blob = bucket.blob(f'Images/{roll_no}.png')
         blob.upload_from_filename(f'./Images/{roll_no}.png')
 
-        # Addding the new student in Attendance sheet
-        df = pd.read_csv('attendance.csv')
+        csv_file_path = f'school_attendance_database/{branch}.csv'
+
+        if os.path.exists(csv_file_path):
+            df = pd.read_csv(csv_file_path)
+        else:
+            df = pd.DataFrame(columns=['Roll No.', 'Name'])
+            df.to_csv(csv_file_path, index=False)
+            df = pd.read_csv(csv_file_path)  
+
         new_row = pd.DataFrame({col: [np.nan] for col in df.columns})
         new_row['Roll No.'] = roll_no
         new_row['Name'] = student_data["name"]
         df = pd.concat([df, new_row], ignore_index=True)
-        df.to_csv("attendance.csv")
+        df.to_csv(csv_file_path, index=False)
 
         messagebox.showinfo("Success", "Student data and photo added successfully!")
         add_student_window.destroy()
+
 
     add_student_window = tk.Toplevel(root)
     add_student_window.title("Add Student")
@@ -100,10 +112,14 @@ def open_add_student_form():
 
 def delete_student():
     def submit_delete():
-        roll_no = roll_no_entry.get()
+        roll_no = roll_no_entry.get() 
+        branch = branch_entry.get()
         
         if not roll_no:
             messagebox.showwarning("Warning", "Roll No. cannot be empty.")
+            return
+        if not branch:
+            messagebox.showwarning("Warning", "Branch cannot be empty.")
             return
 
         # Delete local image file
@@ -119,34 +135,64 @@ def delete_student():
         # Delete student record from Firebase Database
         ref.child(roll_no).delete()
 
+        csv_file_path = f'school_attendance_database/{branch}.csv'
+
         # Delete student record from Attendace sheet
-        if os.path.exists('attendance.csv'):
-            df = pd.read_csv('attendance.csv')
+        if os.path.exists(csv_file_path):
+            df = pd.read_csv(csv_file_path)
             if 'Roll No.' in df.columns:
                 df['Roll No.'] = df["Roll No."].astype(str)
                 df = df[df['Roll No.'] != str(roll_no)]
-                df.to_csv('attendance.csv', index=False)
+                df.to_csv(csv_file_path, index=False)
         
-        messagebox.showinfo("Success", "Student removed from School database!")
+        messagebox.showinfo("Success", "Student removed from attendance database!")
         delete_student_window.destroy()
 
     delete_student_window = tk.Toplevel(root)
     delete_student_window.title("Delete Student")
 
-    tk.Label(delete_student_window, text="Roll No.:").grid(row=0, column=0, padx=10, pady=10)
-    
+    tk.Label(delete_student_window, text="Branch:").grid(row=0, column=0, padx=10, pady=10)
+    branch_entry = tk.Entry(delete_student_window)
+    branch_entry.grid(row=0, column=1, padx=10, pady=10)
+
+    tk.Label(delete_student_window, text="Roll No:").grid(row=1, column=0, padx=10, pady=10)
     roll_no_entry = tk.Entry(delete_student_window)
-    roll_no_entry.grid(row=0, column=1, padx=10, pady=10)
+    roll_no_entry.grid(row=1, column=1, padx=10, pady=10)
     
     tk.Button(delete_student_window, text="Submit", command=submit_delete).grid(row=1, column=0, columnspan=2, pady=10)
 
 
-
 def look_attendance():
-    try:
-        os.startfile('attendance.csv')
-    except Exception as e:
-        messagebox.showerror("Error", f"Failed to open attendance.csv: {e}")
+    def open_attendance_form():
+        def submit_branch():
+            branch = branch_entry.get().strip()
+            if not branch:
+                messagebox.showwarning("Warning", "Branch cannot be empty.")
+                return
+
+            csv_file_path = f'school_attendance_database/{branch}.csv'
+
+            if os.path.exists(csv_file_path):
+                try:
+                    os.startfile(csv_file_path)
+                except Exception as e:
+                    messagebox.showerror("Error", f"Failed to open {csv_file_path}: {e}")
+            else:
+                messagebox.showwarning("Warning", f"No attendance file found for branch: {branch}")
+
+            branch_window.destroy()
+
+        branch_window = tk.Toplevel(root)
+        branch_window.title("Select Branch")
+
+        tk.Label(branch_window, text="Branch:").grid(row=0, column=0, padx=10, pady=10)
+        branch_entry = tk.Entry(branch_window)
+        branch_entry.grid(row=0, column=1, padx=10, pady=10)
+
+        tk.Button(branch_window, text="Submit", command=submit_branch).grid(row=1, column=0, columnspan=2, pady=10)
+
+    open_attendance_form()
+
 
 # GUI DESIGN SECTION USING TKITER
 
@@ -175,12 +221,12 @@ capture_label.pack()
 tk.Label(capture_frame, text="Detect Faces", font=("Arial", 14)).pack()
 capture_label.bind("<Button-1>", lambda e: open_main_py())
 
-add_student_frame = tk.Frame(icon_row_frame_1)
-add_student_frame.grid(row=0, column=1, padx=20, pady=10, sticky="ew")
-add_student_label = tk.Label(add_student_frame, image=add_student_icon, cursor="hand2")
-add_student_label.pack()
-tk.Label(add_student_frame, text="Add Student", font=("Arial", 14)).pack()
-add_student_label.bind("<Button-1>", lambda e: open_add_student_form())
+attendance_frame = tk.Frame(icon_row_frame_1)
+attendance_frame.grid(row=0, column=1, padx=20, pady=10, sticky="ew")
+attendance_label = tk.Label(attendance_frame, image=attendance_icon, cursor="hand2")
+attendance_label.pack()
+tk.Label(attendance_frame, text="Attendance Sheet", font=("Arial", 14)).pack()
+attendance_label.bind("<Button-1>", lambda e: look_attendance())
 
 icon_row_frame_1.grid_columnconfigure(0, weight=1)
 icon_row_frame_1.grid_columnconfigure(1, weight=1)
@@ -188,19 +234,19 @@ icon_row_frame_1.grid_columnconfigure(1, weight=1)
 icon_row_frame_2 = tk.Frame(root)
 icon_row_frame_2.pack(padx=20, pady=10, fill="x")
 
+add_student_frame = tk.Frame(icon_row_frame_2)
+add_student_frame.grid(row=0, column=0, padx=20, pady=10, sticky="ew")
+add_student_label = tk.Label(add_student_frame, image=add_student_icon, cursor="hand2")
+add_student_label.pack()
+tk.Label(add_student_frame, text="Add Student", font=("Arial", 14)).pack()
+add_student_label.bind("<Button-1>", lambda e: open_add_student_form())
+
 delete_student_frame = tk.Frame(icon_row_frame_2)
-delete_student_frame.grid(row=0, column=0, padx=20, pady=10, sticky="ew")
+delete_student_frame.grid(row=0, column=1, padx=20, pady=10, sticky="ew")
 delete_student_label = tk.Label(delete_student_frame, image=delete_student_icon, cursor="hand2")
 delete_student_label.pack()
 tk.Label(delete_student_frame, text="Delete Student", font=("Arial", 14)).pack()
 delete_student_label.bind("<Button-1>", lambda e: delete_student())
-
-attendance_frame = tk.Frame(icon_row_frame_2)
-attendance_frame.grid(row=0, column=1, padx=20, pady=10, sticky="ew")
-attendance_label = tk.Label(attendance_frame, image=attendance_icon, cursor="hand2")
-attendance_label.pack()
-tk.Label(attendance_frame, text="Attendance Sheet", font=("Arial", 14)).pack()
-attendance_label.bind("<Button-1>", lambda e: look_attendance())
 
 icon_row_frame_2.grid_columnconfigure(0, weight=1)
 icon_row_frame_2.grid_columnconfigure(1, weight=1)

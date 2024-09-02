@@ -12,6 +12,7 @@ from firebase_admin import storage
 import numpy as np
 import pandas as pd
 from datetime import datetime, date
+import time
 load_dotenv()
 
 cred = credentials.Certificate("serviceAccountKey.json")
@@ -103,18 +104,21 @@ while True:
                 datetimeObject = datetime.strptime(studentInfo['last_attendance_time'],"%Y-%m-%d %H:%M:%S")
                 secondsElapsed = (datetime.now() - datetimeObject).total_seconds()
                 print(secondsElapsed)
-                if secondsElapsed > 10:
+                if secondsElapsed > 15:
                     ref = db.reference(f'Students/{id}')
                     studentInfo['total_attendance'] += 1
 
+                    branch = ref.child('major').get()
                     ref.child('total_attendance').set(studentInfo['total_attendance'])
                     ref.child('last_attendance_time').set(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
                     # Mark Attendace in Excel Sheet
                     current_date = date.today().strftime("%d-%m-%Y")
+                    csv_file_path = f'school_attendance_database/{branch}.csv'
 
                     try:
-                        df = pd.read_csv('attendance.csv')
+                        df = pd.read_csv(csv_file_path, index_col=False)
+                        df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
                     except FileNotFoundError:
                         df = pd.DataFrame(columns=['Roll No.', 'Name'])
 
@@ -132,7 +136,7 @@ while True:
                     for column in df.columns:
                          if column != 'Roll No.' and column != 'Name' and column != current_date:
                              df[column] = df[column].fillna('A')
-                    df.to_csv('attendance.csv', index=False)
+                    df.to_csv(csv_file_path, index=False)
                 else:
                     modeType = 3
                     counter = 0
@@ -140,12 +144,12 @@ while True:
 
             if modeType != 3:
 
-                if 10 < counter < 20:
+                if 20 < counter < 30:
                     modeType = 2
 
                 imgBackground[44:44 + 633, 808:808 + 414] = imgModeList[modeType]
 
-                if counter <= 10:
+                if counter <= 20:
                     cv2.putText(imgBackground, str(studentInfo['total_attendance']), (861, 125),
                                 cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255), 1)
                     cv2.putText(imgBackground, str(studentInfo['major']), (1006, 550),
@@ -168,7 +172,7 @@ while True:
 
                 counter += 1
 
-                if counter >= 20:
+                if counter >= 30:
                     counter = 0
                     modeType = 0
                     studentInfo = []
