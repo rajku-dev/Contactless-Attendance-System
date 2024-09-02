@@ -1,0 +1,9 @@
+.venv/
+
+.env
+
+serviceAccountKey.json
+
+Images/
+
+EncodeFile.p
