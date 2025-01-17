@@ -1,7 +1,6 @@
 # Contactless-Attendance-System
 
-Contactless Attendance System is a three-step process namely face detection, followed by face recognition and finally if a registered person is detected then marks the attendance. This proposed system detects and recognises faces using deep learning algorithms by using a camera to take pictures of an individual. When a match is made in the face database, then attendance is marked of the recognised person with name, date and time. 'face_recognition' Library is used to compute and compare features of different real-time input images to accurately recognize them. Once the recognition step is done, attendance of the respective recognized person will be marked in an excel sheet and firebase realtime database. 
-
+The Contactless Attendance System is designed as a three-step process: face detection, face recognition, and attendance marking. The system utilizes deep learning techniques for detecting and recognizing faces using a camera that captures real-time images of individuals. Upon identifying a match from the stored face database, the system records the attendance of the recognized individual along with their name, date, and time. The 'face_recognition' library facilitates feature extraction and comparison to ensure accurate identification. Once a person is recognized, their attendance is updated both in an Excel sheet and in a Firebase Realtime Database for seamless record management.
 ## Environment Setup
 
 The virtual environment used for the application contains the following version of dependencies:
